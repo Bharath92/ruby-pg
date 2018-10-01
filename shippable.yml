@@ -1,0 +1,58 @@
+language: ruby
+runtime:
+  - nodePool: default_node_pool
+  - nodePool: shippable_shared_aarch32
+  - nodePool: shippable_shared_aarch64
+matrix:
+  include:
+    - rvm: 2.5
+      nodePool: default_node_pool
+      env: PGVERSION=10.0-1-linux-64 PATH="/opt/PostgreSQL/10/bin:$PATH"
+    - rvm: 2.5
+      nodePool: shippable_shared_aarch32
+      env: PGVERSION=10.0-1-linux-64 PATH="/opt/PostgreSQL/10/bin:$PATH"
+    - rvm: 2.5
+      nodePool: shippable_shared_aarch64
+      env: PGVERSION=10.0-1-linux-64 PATH="/opt/PostgreSQL/10/bin:$PATH"
+build:
+  ci:
+    - uname -a
+    - id
+    - pwd
+    - |
+      echo "SHIPPABLE_BUILD_DIR: ${SHIPPABLE_BUILD_DIR}"
+    - |
+      echo "PGVERSION: ${PGVERSION}"
+    - |
+      echo "PATH: ${PATH}"
+    - |
+      export TEST_USER="ruby-pg"
+      useradd "${TEST_USER}"
+      chown -R "${TEST_USER}:${TEST_USER}" "${SHIPPABLE_BUILD_DIR}"
+    - |
+      wget -q "http://get.enterprisedb.com/postgresql/postgresql-${PGVERSION}.run" && \
+      chmod +x "postgresql-${PGVERSION}.run" && \
+      ./postgresql-$PGVERSION.run --extract-only 1 --mode unattended
+    # Enable sudo without password for convenience.
+    - |
+      ls -l /etc/sudoers && \
+      echo "${TEST_USER} ALL = NOPASSWD: ALL" >> /etc/sudoers
+    # Test
+    - |
+      su "${TEST_USER}" - <<EOF
+      set -v
+      export PATH="/opt/PostgreSQL/10/bin:$PATH"
+      cd "${SHIPPABLE_BUILD_DIR}"
+      which initdb
+      initdb --version
+      which pg_ctl
+      pg_ctl --version
+      which psql
+      psql --version
+      bundle install --path vendor/bundle
+      bundle exec rake compile
+      bundle exec rake test
+      EOF
+  on_failure:
+    - |
+      cat ${SHIPPABLE_BUILD_DIR}/tmp_test_specs/setup.log || true
