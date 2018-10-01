@@ -12,6 +12,25 @@ env:
   - "PGVERSION=9.3.19-1-linux-x64 PATH=\"/opt/PostgreSQL/9.3/bin:$PATH\""
   - "PGCROSS=true"
 matrix:
+  include:
+    - language: ruby
+      rvm: "2.5"
+      # i686 (32bit environment case)
+      env:
+        - DOCKER=i686
+        # 32 bit edition.
+        - PGVERSION=10.0-1-linux
+        - PATH="/opt/PostgreSQL/10/bin:$PATH"
+      before_install: true
+      install: |
+        docker build \
+          --build-arg PGVERSION=${PGVERSION} \
+          --build-arg PATH="${PATH}" \
+          --build-arg RUBYVERSION="${TRAVIS_RUBY_VERSION}" \
+          -t pg \
+          -f Dockerfile-$DOCKER \
+          .
+      script: docker run -t pg
   # Test cross compilation only with 2.4
   exclude:
     - rvm: "2.2"
@@ -22,6 +41,10 @@ matrix:
       env: "PGCROSS=true"
   allow_failures:
     - rvm: ruby-head
+    - env:
+        - DOCKER=i686
+        - PGVERSION=10.0-1-linux
+        - PATH="/opt/PostgreSQL/10/bin:$PATH"
   fast_finish: true
 before_install:
   - gem install bundler
